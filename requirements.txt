@@ -1,0 +1,14 @@
+# Core HTTP requests
+requests>=2.31.0
+
+# Environment variables
+python-dotenv>=1.1.0
+
+# Type checking and TypedDict support (Python 3.13 already supports most, optional)
+typing-extensions>=4.8.0
+
+# LangGraph & Groq API
+langgraph>=0.10.0
+langchain_groq>=0.1.0
+
+# For email sending (smtplib and email are builtin, no install needed)
