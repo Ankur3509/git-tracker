@@ -9,6 +9,7 @@ import requests
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
 #model setup
 load_dotenv()
@@ -27,10 +28,33 @@ def load_previous_metrics(repo_url: str):
     with open(METRICS_FILE, "r") as f:
         try:
             data = json.load(f)
-            return data.get(repo_url)
+            repo_data = data.get(repo_url)
+            
+            if not repo_data:
+                return None
+                
+            # Handle new list format vs old dict format
+            if isinstance(repo_data, list):
+                return repo_data[-1] if repo_data else None
+            return repo_data
         except (json.JSONDecodeError, AttributeError):
             return None
 
+def load_history(repo_url: str):
+    if not os.path.exists(METRICS_FILE):
+        return []
+
+    with open(METRICS_FILE, "r") as f:
+        try:
+            data = json.load(f)
+            repo_data = data.get(repo_url)
+            if isinstance(repo_data, list):
+                return repo_data
+            if repo_data:
+                return [repo_data]
+            return []
+        except:
+            return []
 
 def save_current_metrics(repo_url: str, metrics: dict):
     data = {}
@@ -41,7 +65,13 @@ def save_current_metrics(repo_url: str, metrics: dict):
             except json.JSONDecodeError:
                 data = {}
     
-    data[repo_url] = metrics
+    # Initialize list if not present or convert old dict format
+    if repo_url not in data:
+        data[repo_url] = []
+    elif not isinstance(data[repo_url], list):
+        data[repo_url] = [data[repo_url]]
+        
+    data[repo_url].append(metrics)
     
     with open(METRICS_FILE, "w") as f:
         json.dump(data, f, indent=2)
@@ -154,6 +184,7 @@ def traffic_views(state:Gitstate) -> Gitstate:
     return state
 
 def llm_summary(state:Gitstate) -> Gitstate:
+    print("DEBUG: llm_summary node")
     llm_input = {
     "previous_period": state.get("previous_metrics", {
     "stars": 0,
@@ -393,6 +424,7 @@ def sending_email(state:Gitstate) -> Gitstate:
 
 def persist_metrics(state: Gitstate) -> Gitstate:
     try:
+        url = state.get("repo_url")
         current_metrics = {
             "stars": state.get("stars", 0),
             "view": state.get("view", 0),
@@ -401,7 +433,7 @@ def persist_metrics(state: Gitstate) -> Gitstate:
             "unique_clone": state.get("unique_clone", 0),
             "timestamp": datetime.now().isoformat()
         }
-        save_current_metrics(state["repo_url"], current_metrics)
+        save_current_metrics(url, current_metrics)
     except Exception as e:
         print(f"Failed to persist metrics: {e}")
     return state

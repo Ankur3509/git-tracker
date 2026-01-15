@@ -15,9 +15,11 @@ from agent import (
     app as agent_app,
     load_previous_metrics,
     save_current_metrics,
+    load_history,
     Gitstate,
     METRICS_FILE
 )
+import requests
 import json
 from datetime import datetime
 
@@ -227,10 +229,17 @@ def get_dashboard_data():
                 pass
 
     for repo in repos:
-        metrics = metrics_history.get(repo['url'], {})
-        stars = metrics.get('stars', 0)
-        views = metrics.get('view', 0)
-        clones = metrics.get('clones', 0)
+        metrics = metrics_history.get(repo['url'], [])
+        
+        # Handle list vs dict
+        if isinstance(metrics, dict):
+             metrics = [metrics]
+             
+        latest = metrics[-1] if metrics else {}
+        
+        stars = latest.get('stars', 0)
+        views = latest.get('view', 0)
+        clones = latest.get('clones', 0)
         
         total_stars += stars
         total_views += views
@@ -276,6 +285,42 @@ def sync_all():
     
     save_repos(repos)
     return jsonify({"results": results})
+
+@app.route('/api/history/<int:repo_id>', methods=['GET'])
+def get_repo_history(repo_id):
+    """Get metric history for charts"""
+    repos = load_repos()
+    repo = next((r for r in repos if r['id'] == repo_id), None)
+    if not repo:
+        return jsonify({"error": "Repository not found"}), 404
+        
+    history = load_history(repo['url'])
+    return jsonify(history)
+
+@app.route('/api/commits/<int:repo_id>', methods=['GET'])
+def get_repo_commits(repo_id):
+    """Get recent commits for timeline"""
+    repos = load_repos()
+    repo = next((r for r in repos if r['id'] == repo_id), None)
+    if not repo:
+        return jsonify({"error": "Repository not found"}), 404
+
+    # Fetch commits via GitHub API
+    try:
+        url = f"https://api.github.com/repos/{repo['owner']}/{repo['name']}/commits?per_page=5"
+        # Optional: Use token if available to avoid rate limits
+        token = os.getenv("GITHUB_TOKEN")
+        headers = {"User-Agent": "git-tracker"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+            
+        resp = requests.get(url, headers=headers)
+        if resp.status_code == 200:
+            return jsonify(resp.json())
+        return jsonify([])
+    except Exception as e:
+        print(f"Error fetching commits: {e}")
+        return jsonify([])
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
