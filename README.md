@@ -1,108 +1,101 @@
+# GitTracker Agent 🚀
 
-# GitHub Tracker Agent 🚀
+**The "Analyst-in-a-Box" for Open Source Maintainers.**
 
-**Built in under 24 hours | Founder + Builder Energy**
-
----
-
-## What is this?
-
-GitHub Tracker Agent is your **personal GitHub growth analyst**. It tracks key repository metrics every 24 hours (or on demand), compares them to the previous period, and gives you **actionable insights**.  
-
-- Stars ⭐  
-- Traffic Views 👀  
-- Unique Visitors  
-- Clones 📥  
-- Unique Cloners  
-
-It doesn’t just give raw numbers—it generates **professional summaries**, ready-to-post **LinkedIn updates**, **X (Twitter) posts**, and even **daily email reports**.
+GitTracker is an intelligent, automated system that monitors your GitHub repositories, analyzes traffic trends, and generates professional growth summaries, social media posts, and daily reports using AI.
 
 ---
 
-## Features
+## ⚡ Features
 
-- **Automated Metric Tracking** – fetch stars, views, clones from any repo.  
-- **Historical Comparison** – keeps track of previous metrics to analyze trends.  
-- **AI-Generated Summaries** – clear, analytical breakdown of your repository growth.  
-- **Social Media Ready** – LinkedIn & X post templates automatically generated.  
-- **Email Reports** – daily summary sent straight to your inbox.  
+### 🧠 **Neural Analysis Engine**
+*   **Automated Metrics**: Tracks Stars, Traffic Views, and Clones every 24h (or on demand).
+*   **Trend Detection**: Compares current metrics vs. previous snapshots to identify spikes or drops.
+*   **AI Recaps**: Uses **Groq (Llama 3.1)** to generate actionable insights, not just raw numbers.
 
----
+### 🌐 **Social & Reporting**
+*   **Smart Social Posts**: Generates ready-to-post content for **LinkedIn** and **X (Twitter)** tailored to your repo's recent activity.
+*   **Email Telemetry**: Optional daily digests sent directly to your inbox via SMTP.
 
-## Tech Stack
-
-- Python 3.13  
-- [LangGraph + ChatGroq](https://www.groq.com/) for LLM summaries  
-- GitHub REST API v3 for metrics  
-- SMTP for email notifications  
-- JSON for storing historical metrics  
+### 🖥️ **Hacker UI Dashboard**
+*   **Command Center**: A "High-Tech/Cyberpunk" terminal-style dashboard to view all your repositories at a glance.
+*   **Multi-Repo Support**: Track unlimited open-source projects from a single unified interface.
+*   **Real-Time Sync**: "Sync All Nodes" feature to instantly refresh data across your entire portfolio.
 
 ---
 
-## How to Run
+## 🛠️ Technology Stack
 
-1. Clone this repo:
-```bash
-git clone https://github.com/yourusername/github-agent.git
-cd github-agent
-````
+*   **Frontend**: Next.js 15, Tailwind CSS, Glassmorphism Design
+*   **Backend**: Python 3.12, Flask, LangGraph (AI Agent Workflow)
+*   **AI**: Groq API (Llama-3.1-8b-instant)
+*   **Integration**: GitHub REST API v3
 
-2. Install dependencies:
+---
 
-```bash
-pip install -r requirements.txt
-```
+## 🚀 Quick Start Guide
 
-3. Set up your `.env` file with:
+### 1. Prerequisites
+*   Python 3.12+
+*   Node.js 18+
+*   A Groq API Key (Free)
+*   A GitHub Personal Access Token (Recommended for full traffic stats)
 
-```
-GITHUB_TOKEN=your_github_token
-GROQ_API_KEY=your_llm_api_key
-SMTP_HOST=smtp.example.com
+### 2. Environment Setup
+Create a `.env` file in the root directory:
+```env
+GROQ_API_KEY=gsk_...
+GITHUB_TOKEN=ghp_...
+# Optional: Email Reporting
+SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your_email
-SMTP_PASS=your_email_password
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password
 ```
 
-4. Run the agent:
-
-```bash
-python agent.py
+### 3. Launch the System
+**Terminal 1: The Brain (Backend)**
+```powershell
+cd backend
+python api.py
+# Server running at http://127.0.0.1:5000
 ```
 
-5. Outputs:
-
-* Console: social media-ready posts
-* `metrics_history.json`: stored metrics for next comparison
-* Emails sent (if configured)
-
----
-
-## How it Works
-
-1. Fetch **current metrics** from GitHub.
-2. Compare with **previous metrics** saved in `metrics_history.json`.
-3. Generate **AI-powered analysis** using ChatGroq.
-4. Output **LinkedIn/X post** or send **email report**.
-5. Update `metrics_history.json` with the latest data.
-
----
-
-## Example Output
-
-**X Post:**
-
-```
-We've seen a notable increase in clones and traffic to Example Repository over the last 24 hours, but star growth has been moderate. Time to review and optimize the README and engage with the community to better understand and leverage this interest.
-```
-
-**LinkedIn Post:**
-
-```
-As the founder of Example Repository, I've been observing its performance over the past 24 hours. The repository has experienced a relatively flat period, with some slight increases and decreases in key metrics...
-
-#RepositoryPerformance #CommunityEngagement
+**Terminal 2: The Interface (Frontend)**
+```powershell
+cd frontend
+npm install
+npm run dev
+# Dashboard running at http://localhost:3000
 ```
 
 ---
 
+## 📖 Usage Manual
+
+1.  **Initialize Node**: 
+    *   Navigate to `http://localhost:3000/onboarding`.
+    *   Enter your GitHub repository URL (e.g., `https://github.com/owner/repo`).
+    *   The system creates a persistent link to tracking.
+
+2.  **Monitor Dashboard**:
+    *   View real-time Stars, Views, and Clones.
+    *   Click **"SYNC ALL NODES"** to trigger a fresh data pull.
+
+3.  **Generate Intelligence**:
+    *   Click **"Recap"** on any repository card.
+    *   Select **LinkedIn** or **X** to generate a viral-ready post based on the latest growth data.
+
+---
+
+## 📂 File Structure
+
+*   **`agent.py`**: The core LangGraph agent definition.
+*   **`backend/`**: Flask API wrapper exposing the agent to the web.
+*   **`frontend/`**: Next.js 15 application.
+*   **`metrics_history.json`**: (Auto-generated) Stores historical snapshots for trend analysis.
+*   **`connected_repos.json`**: (Auto-generated) Registry of tracked repositories.
+
+---
+
+*Built with ❤️ for Builders who Ship.*

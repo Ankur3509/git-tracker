@@ -15,24 +15,36 @@ load_dotenv()
 
 
 
-METRICS_FILE = "metrics_history.json"
+# File paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+METRICS_FILE = os.path.join(BASE_DIR, "metrics_history.json")
 
 #loading
-def load_previous_metrics():
+def load_previous_metrics(repo_url: str):
     if not os.path.exists(METRICS_FILE):
         return None
 
     with open(METRICS_FILE, "r") as f:
         try:
             data = json.load(f)
-            return data if data else None
-        except json.JSONDecodeError:
+            return data.get(repo_url)
+        except (json.JSONDecodeError, AttributeError):
             return None
 
 
-def save_current_metrics(metrics: dict):
+def save_current_metrics(repo_url: str, metrics: dict):
+    data = {}
+    if os.path.exists(METRICS_FILE):
+        with open(METRICS_FILE, "r") as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                data = {}
+    
+    data[repo_url] = metrics
+    
     with open(METRICS_FILE, "w") as f:
-        json.dump(metrics, f, indent=2)
+        json.dump(data, f, indent=2)
 
 
 model = ChatGroq(
@@ -48,11 +60,16 @@ SMTP_PASS=os.getenv("SMTP_PASS")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
+if not GITHUB_TOKEN:
+    print("WARNING: GITHUB_TOKEN not found. Traffic metrics (views/clones) will fail for private repos and may be rate-limited for public ones.")
+
 headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json",
         "User-Agent": "langgraph-agent"
     }
+
+if GITHUB_TOKEN:
+    headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
 
 
 
@@ -82,56 +99,58 @@ class Gitstate(TypedDict,total=False):
 
 
 def stars_checking(state:Gitstate) -> Gitstate:
-    
-    recieving_url=state["repo_url"]
-    user=recieving_url.split("/")[-2]
-    repo=recieving_url.split("/")[-1]
+    try:
+        recieving_url=state["repo_url"]
+        user=recieving_url.split("/")[-2]
+        repo=recieving_url.split("/")[-1]
+        print(f"--- Fetching stars for {user}/{repo} ---")
 
-    url=f"https://api.github.com/repos/{user}/{repo}"
-    response = requests.get(url, headers=headers)
-
-    data = response.json()
-
-    stars = data["stargazers_count"]
-    
-    state["stars"]=stars
-
+        url=f"https://api.github.com/repos/{user}/{repo}"
+        response = requests.get(url, headers=headers)
+        data = response.json()
+        
+        state["stars"] = data.get("stargazers_count", 0)
+        print(f"Stars found: {state['stars']}")
+    except Exception as e:
+        print(f"Error fetching stars: {e}")
+        state["stars"] = 0
     return state
     
 
 def clones_checking(state:Gitstate) -> Gitstate:
-    recieving_url=state["repo_url"]
-    extracting_user=recieving_url.split("/")[-2]
-    extracting_repo=recieving_url.split("/")[-1]
+    try:
+        recieving_url=state["repo_url"]
+        extracting_user=recieving_url.split("/")[-2]
+        extracting_repo=recieving_url.split("/")[-1]
 
-    traffic_url=f"https://api.github.com/repos/{extracting_user}/{extracting_repo}/traffic/clones"
-    response=requests.get(url=traffic_url,headers=headers)
-    response_json=response.json()
+        traffic_url=f"https://api.github.com/repos/{extracting_user}/{extracting_repo}/traffic/clones"
+        response=requests.get(url=traffic_url,headers=headers)
+        response_json=response.json()
 
-    clone=response_json["count"]
-    unique_clone=response_json["uniques"]
-
-    state["clones"]=clone
-    state["unique_clone"]=unique_clone
-
+        state["clones"] = response_json.get("count", 0)
+        state["unique_clone"] = response_json.get("uniques", 0)
+    except Exception as e:
+        print(f"Error fetching clones: {e}")
+        state["clones"] = 0
+        state["unique_clone"] = 0
     return state
 
 def traffic_views(state:Gitstate) -> Gitstate:
+    try:
+        recieving_url=state["repo_url"]
+        extracting_user=recieving_url.split("/")[-2]
+        extracting_repo=recieving_url.split("/")[-1]
 
-    recieving_url=state["repo_url"]
-    extracting_user=recieving_url.split("/")[-2]
-    extracting_repo=recieving_url.split("/")[-1]
-
-    traffic_url=f"https://api.github.com/repos/{extracting_user}/{extracting_repo}/traffic/views"
-    response=requests.get(url=traffic_url,headers=headers)
-    response_json=response.json()
-    
-    view=response_json["count"]
-    unique_view=response_json["uniques"]
-
-    state["view"]=view
-    state["unique_views"]=unique_view
-
+        traffic_url=f"https://api.github.com/repos/{extracting_user}/{extracting_repo}/traffic/views"
+        response=requests.get(url=traffic_url,headers=headers)
+        response_json=response.json()
+        
+        state["view"] = response_json.get("count", 0)
+        state["unique_views"] = response_json.get("uniques", 0)
+    except Exception as e:
+        print(f"Error fetching views: {e}")
+        state["view"] = 0
+        state["unique_views"] = 0
     return state
 
 def llm_summary(state:Gitstate) -> Gitstate:
@@ -348,19 +367,43 @@ Return only the tweet text.
     return state
 
 def sending_email(state:Gitstate) -> Gitstate:
-    msg=MIMEMultipart()
-    msg["From"]=SMTP_USER
-    msg["To"]="digiance.sagarit@gmail.com"
-    msg["Subject"]="Daily Github Summary"
-    msg.attach(MIMEText(state["summary_ans"],"plain"))
+    if not all([SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS]):
+        print("SMTP not configured, skipping email.")
+        state["status"] = "skipped_no_config"
+        return state
+        
+    try:
+        msg=MIMEMultipart()
+        msg["From"]=SMTP_USER
+        msg["To"]="digiance.sagarit@gmail.com"
+        msg["Subject"]="Daily Github Summary"
+        msg.attach(MIMEText(state.get("summary_ans", "No summary available"),"plain"))
 
-    server=smtplib.SMTP(SMTP_HOST,SMTP_PORT)
-    server.starttls()
-    server.login(SMTP_USER,SMTP_PASS)
-    server.send_message(msg)
-    server.quit()
-    state["status"]="sent"
+        server=smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(msg)
+        server.quit()
+        state["status"]="sent"
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        state["status"] = f"error: {str(e)}"
 
+    return state
+
+def persist_metrics(state: Gitstate) -> Gitstate:
+    try:
+        current_metrics = {
+            "stars": state.get("stars", 0),
+            "view": state.get("view", 0),
+            "unique_views": state.get("unique_views", 0),
+            "clones": state.get("clones", 0),
+            "unique_clone": state.get("unique_clone", 0),
+            "timestamp": datetime.now().isoformat()
+        }
+        save_current_metrics(state["repo_url"], current_metrics)
+    except Exception as e:
+        print(f"Failed to persist metrics: {e}")
     return state
 
 
@@ -410,24 +453,25 @@ graph.add_edge("x_post",END)
 
 app=graph.compile()
 
-previous_metrics = load_previous_metrics()
+if __name__ == "__main__":
+    previous_metrics = load_previous_metrics()
 
-result = app.invoke(
-    {
-        "repo_url": "your_repo",
-        "social_type":"x/linkedin",
-        "previous_metrics": previous_metrics or {
-            "stars": 0,
-            "views": 0,
-            "uni_view": 0,
-            "clone": 0,
-            "uni_clone": 0
+    result = app.invoke(
+        {
+            "repo_url": "your_repo",
+            "social_type":"x/linkedin",
+            "previous_metrics": previous_metrics or {
+                "stars": 0,
+                "views": 0,
+                "uni_view": 0,
+                "clone": 0,
+                "uni_clone": 0
+            }
         }
-    }
-)
+    )
 
-result_socialmedia_post=result["post"]
-result_mail_status=result["status"]
+    result_socialmedia_post=result["post"]
+    result_mail_status=result["status"]
 
-print(result_socialmedia_post)
-print(result_mail_status)
+    print(result_socialmedia_post)
+    print(result_mail_status)
