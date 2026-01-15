@@ -123,10 +123,31 @@ def add_repo():
 @app.route('/api/repos/<int:repo_id>', methods=['DELETE'])
 def delete_repo(repo_id):
     """Remove a repository from tracking"""
-    repos = load_repos()
-    repos = [r for r in repos if r['id'] != repo_id]
-    save_repos(repos)
-    return jsonify({"success": True})
+    try:
+        repos = load_repos()
+        repo_to_delete = next((r for r in repos if int(r['id']) == repo_id), None)
+        
+        if not repo_to_delete:
+             return jsonify({"error": "Repository not found"}), 404
+             
+        repos = [r for r in repos if int(r['id']) != repo_id]
+        save_repos(repos)
+        
+        # Also remove from metrics history
+        if os.path.exists(METRICS_FILE):
+            with open(METRICS_FILE, 'r') as f:
+                try:
+                    data = json.load(f)
+                    if repo_to_delete['url'] in data:
+                        del data[repo_to_delete['url']]
+                        with open(METRICS_FILE, 'w') as f_out:
+                            json.dump(data, f_out, indent=2)
+                except:
+                    pass
+                    
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/metrics/<int:repo_id>', methods=['GET'])
 def get_metrics(repo_id):

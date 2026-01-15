@@ -88,7 +88,10 @@ export default function Dashboard() {
         }
     };
 
-    const handleDeleteRepo = async (id: number) => {
+    const handleDeleteRepo = async (e: React.MouseEvent, id: number) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (!confirm("Remove this repository from tracking?")) return;
 
         try {
@@ -97,6 +100,8 @@ export default function Dashboard() {
             });
             if (res.ok) {
                 await fetchDashboardData();
+            } else {
+                alert("Failed to delete repository");
             }
         } catch (err) {
             console.error("Error deleting repo", err);
@@ -252,7 +257,7 @@ export default function Dashboard() {
                                         <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
                                     </Link>
                                     <button
-                                        onClick={() => handleDeleteRepo(repo.id)}
+                                        onClick={(e) => handleDeleteRepo(e, repo.id)}
                                         className="text-zinc-800 hover:text-red-500 transition-colors p-2"
                                     >
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
